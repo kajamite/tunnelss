@@ -39,7 +39,7 @@ module Tunnelss::ConfigureWithPow
 
     puts "Creating SSL keypair for signing #{pow_domain_extensions.join(',')}certificate"
     multi_domain_certificate_param = pow_domain_extensions.map { |e| "CN=*.#{e} Domain CA" }.join('/')
-    system "openssl req -newkey rsa:2048 -batch -x509 -sha256 -nodes -subj \"/C=US/O=Developer Certificate/#{multi_domain_certificate_param}\" -keyout #{ca_dir}/key.pem -out #{ca_dir}/cert.pem -days 9999 &> /dev/null"
+    system "openssl req -newkey rsa:2048 -batch -x509 -sha256 -nodes -subj /CN=rew.dev -keyout #{ca_dir}/key.pem -out #{ca_dir}/cert.pem -days 3650 &> /dev/null"
     puts "Adding certificate to login keychain as trusted."
     system "security add-trusted-cert -d -r trustRoot -k #{ENV['HOME']}/Library/Keychains/login.keychain #{ca_dir}/cert.pem"
     puts "================================================================================"
@@ -52,9 +52,25 @@ module Tunnelss::ConfigureWithPow
 
     puts "Generating new *.#{pow_domain_extensions.join(',')} certificate"
     multi_domain_certificate_param = pow_domain_extensions.map { |e| "CN=*.#{e}" }.join('/')
-    system "openssl req -newkey rsa:2048 -sha256 -batch -nodes -subj \"/C=US/O=Developer Certificate/#{multi_domain_certificate_param}\" -keyout #{dir}/key.pem -out #{dir}/csr.pem -days 9999 &> /dev/null"
+    system "openssl req -newkey rsa:2048 -sha256 -batch -nodes -subj /CN=rew.dev -keyout #{dir}/key.pem -out #{dir}/csr.pem -days 3650 &> /dev/null"
+    # system <<-SHELL
+    #   openssl req \
+    #     -newkey rsa:2048 \
+    #     -x509 \
+    #     -nodes \
+    #     -keyout #{dir}/key.pem \
+    #     -new \
+    #     -out #{dir}/csr.pem  \
+    #     -subj /CN=rew.dev \
+    #     -reqexts SAN \
+    #     -extensions SAN \
+    #     -config <(cat /System/Library/OpenSSL/openssl.cnf \
+    #         <(printf '[SAN]\nsubjectAltName=DNS:rew.dev,DNS:www.rew.dev,DNS:api.rew.dev')) \
+    #     -sha256 \
+    #     -days 3650 &> /dev/null
+    # SHELL
     puts "Signing *.#{pow_domain_extensions.join(',')} certificate"
-    system "openssl ca -config #{ca_dir}/openssl.cnf -policy policy_anything -batch -days 9999 -out #{dir}/cert.pem -infiles #{dir}/csr.pem &> /dev/null"
+    system "openssl ca -config #{ca_dir}/openssl.cnf -policy policy_anything -batch -days 3650 -out #{dir}/cert.pem -infiles #{dir}/csr.pem &> /dev/null"
 
     # Build cert chain
     system "cat #{dir}/cert.pem > #{dir}/server.crt"
@@ -110,19 +126,22 @@ module Tunnelss::ConfigureWithPow
   end
 
   def pow_domain_extensions
-    @pow_domain_extensions ||= begin
-      domains = `source #{ENV['HOME']}/.powconfig 2> /dev/null && echo $POW_DOMAINS`.chomp.split(',')
-      domains = ['dev'] if domains.empty?
-      domains
-    end
+    # @pow_domain_extensions ||= begin
+    #   domains = `source #{ENV['HOME']}/.powconfig 2> /dev/null && echo $POW_DOMAINS`.chomp.split(',')
+    #   domains = ['dev'] if domains.empty?
+    #   domains
+    # end
+
+    @pow_domain_extensions ||= ['dev']
   end
 
   def pow_domains_str
-    pow_domains.map do |d|
-      pow_domain_extensions.map do |e|
-        "DNS:#{d}.#{e},DNS:*.#{d}.#{e}"
-      end
-    end.flatten.join(',')
+    # pow_domains.map do |d|
+    #   pow_domain_extensions.map do |e|
+    #     "DNS:#{d}.#{e},DNS:*.#{d}.#{e}"
+    #   end
+    # end.flatten.join(',')
+    "DNS:rew.dev,DNS:www.rew.dev,DNS:api.rew.dev'"
   end
 
   def pow_dir
